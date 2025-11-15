@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="utf-8" />
+<title>מפת גינות ובתי קפה – שאלון איכויות</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  direction: rtl;
+  font-family: sans-serif;
+}
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+.leaflet-popup-content {
+  text-align: right;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+img.park-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin: 8px auto;
+  border: 2px solid white;
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
+}
+
+.marker-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid white;
+  overflow: hidden;
+  box-shadow: 0 0 4px rgba(0,0,0,0.4);
+  background-color: #4CAF50;
+  position: relative;
+}
+.marker-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.confirm-icon {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  background-color: #00C853;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 72px;
+  height: 72px;
+  text-align: center;
+  line-height: 72px;
+  font-size: 48px;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+.confirm-icon.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.question-box {
+  display: none;
+  text-align: center;
+  margin-top: 10px;
+}
+.question-box p {
+  margin: 6px 0;
+}
+.question-box button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.question-box button:hover {
+  background-color: #45A049;
+}
+
+textarea {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px;
+  font-family: inherit;
+  width: 90%;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ===== הגדרות בסיס =====
+const map = L.map("map").setView([32.125, 34.802], 14);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
+
+// ===== רשימת איכויות =====
+const qualities = [
+  "נוף יפה",
+  "מרחב טבע",
+  "הרגשה של יער",
+  "חופש ומרחב",
+  "פארק אטרקטיבי",
+  "שקט ושלווה",
+  "אזור עם מתקנים לפעילויות",
+  "היסטוריה ותרבות",
+  "אתר טבע חשוב",
+  "לא נעים",
+  "מפחיד",
+  "רועש",
+  "איכות אחרת – נעימה או לא נעימה (כתבו כאן התייחסות אישית)"
+];
+
+// ===== רשימת גינות שלא יוצגו =====
+const excluded = [
+  "אקופארק גלילות", "גינת אלבוים רון",
+  "גינת ברקאי שמואל", "גן רווזאניס",
+  "גינת קריספין חיים", "גינת רומנו",
+  "גינת ריזפלד", "מחנה דולפין"
+];
+
+// ===== נתוני גינות =====
+const parksData = [
+  {"name":"גן רוזין","lat":32.126187,"lon":34.803838},
+  {"name":"גן אלפרד ביר","lat":32.126725,"lon":34.799704},
+  {"name":"מרכז קהילתי רוזין","lat":32.126956,"lon":34.804118},
+  {"name":"מרכז אלרם-שוסטר","lat":32.125162,"lon":34.803658},
+  {"name":"בית הלוחם","lat":32.124210,"lon":34.808007},
+  {"name":"קאנטרי גימל","lat":32.127565,"lon":34.803042},
+  {"name":"גן הפסל","lat":32.126009,"lon":34.797823},
+  {"name":"גן פיינשטיין","lat":32.127806,"lon":34.798541},
+  {"name":"גן מלקינד","lat":32.128201,"lon":34.796766},
+  {"name":"קאנטרי ברזני","lat":32.127002,"lon":34.796730},
+  {"name":"חורשת דרזנר","lat":32.128074,"lon":34.806370},
+  {"name":"גן יהודה ליש","lat":32.125499,"lon":34.805951},
+  {"name":"גן כצנלסון","lat":32.123660,"lon":34.799530},
+  {"name":"גן בויאר","lat":32.123350,"lon":34.795436},
+  {"name":"גן המייסדים","lat":32.129443,"lon":34.791957},
+  {"name":"גן אביגור-אזורי חן","lat":32.129959,"lon":34.794299},
+  {"name":"גינת בוסתן המינים","lat":32.129725,"lon":34.792718},
+  {"name":"גינת מוקדי","lat":32.128172,"lon":34.793628},
+  {"name":"גן שניצר","lat":32.126109,"lon":34.793089},
+  {"name":"מגרש סמבורסקי","lat":32.126767,"lon":34.793759},
+  {"name":"גינת ברלין","lat":32.124129,"lon":34.792870},
+  {"name":"קאנטרי אזורי חן","lat":32.130632,"lon":34.792803},
+  {"name":"חולות","lat":32.125868,"lon":34.791218},
+  {"name":"גינת אלכסנדר פן","lat":32.123369,"lon":34.811476},
+  {"name":"גינת מיקדו","lat":32.122888,"lon":34.815628},
+  {"name":"גינת מרידור","lat":32.122370,"lon":34.819930},
+  {"name":"גן מרידור","lat":32.122847,"lon":34.822084},
+  {"name":"גן שורר חיים","lat":32.122829,"lon":34.811449},
+  {"name":"גן בית צורי","lat":32.12311275936392,"lon":34.801534712924436},
+  {"name":"גן ליאון רקנאטי","lat":32.12273266261491,"lon":34.803450038810816}
+].filter(p => !excluded.includes(p.name));
+
+// ===== מזהה משתמש ייחודי =====
+const userId = localStorage.getItem("userId") || Math.random().toString(36).substr(2, 9);
+localStorage.setItem("userId", userId);
+
+// ===== שליחת נתונים ל-Google Sheets =====
+function sendDataToSheet(parkName, quality, value) {
+  fetch("https://script.google.com/macros/s/AKfycbzHltAVD8B5Ng2pBAZQ8FLrzw-d6Y-sn_aohJuiV_CW6KuISXbxOAftRcYW1m_LG0Wf/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      parkName,
+      quality,
+      value,
+      userId,
+      timestamp: new Date().toISOString()
+    }),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.json())
+  .then(d => console.log("✅ נשלח:", d))
+  .catch(e => console.error("שגיאה בשליחה:", e));
+}
+
+// ===== יצירת סמל גינה =====
+function createIcon(name, active = false) {
+  const borderColor = active ? "#00C853" : "white";
+  const background = active ? "#C8E6C9" : "#4CAF50";
+  const check = active ? `<div style="position:absolute;top:-6px;right:-6px;
+                          background:#00C853;color:white;border-radius:50%;
+                          width:18px;height:18px;font-size:12px;
+                          text-align:center;line-height:18px;">✔</div>` : "";
+  return L.divIcon({
+    html: `
+      <div class="marker-thumb" style="border-color:${borderColor};background:${background};position:relative;">
+        <img src="${name}.jpg" alt="${name}"
+             onerror="this.style.display='none';this.parentElement.style.backgroundColor='#228B22';">
+        ${check}
+      </div>`,
+    className: ""
+  });
+}
+
+// ===== תוכן חלונית =====
+function createPopupContent(name) {
+  let html = `<div style="position:relative;">
+    <h4>${name}</h4>
+    <img src="${name}.jpg" alt="${name}" class="park-photo" onerror="this.style.display='none'">
+    <p><strong>מהן האיכויות של המקום?</strong></p>`;
+
+  qualities.forEach(q => {
+    const id = `${name}-${q}`.replace(/\s+/g, '-');
+    if (q.includes("איכות אחרת")) {
+      html += `
+        <label><input type="checkbox" id="${id}" value="${q}"> ${q}</label><br>
+        <textarea id="other-${name}" placeholder="כתבו כאן..." rows="2"></textarea><br>`;
+    } else {
+      html += `<label><input type="checkbox" id="${id}" value="${q}"> ${q}</label><br>`;
+    }
+  });
+
+  html += `
+    <div class="question-box" id="question-${name}">
+      <p><strong>האם יש איכויות נוספות למקום?</strong></p>
+      <button class="yes-btn">כן</button>
+      <button class="no-btn">לא</button>
+    </div>
+    <div class="confirm-icon" id="check-${name}">✔</div>
+  </div>`;
+  return html;
+}
+
+// ===== הוספת סמנים למפה =====
+parksData.forEach(p => {
+  p.hasSelection = false;
+  const marker = L.marker([p.lat, p.lon], { icon: createIcon(p.name, false) }).addTo(map);
+  const html = createPopupContent(p.name);
+  marker.bindPopup(html, { maxHeight: 350 });
+
+  marker.on('popupopen', e => {
+    const popup = e.popup.getElement();
+    const checkIcon = popup.querySelector(".confirm-icon");
+    const questionBox = popup.querySelector(".question-box");
+    const otherField = popup.querySelector(`#other-${p.name}`);
+
+    // שליחת טקסט חופשי
+    if (otherField) {
+      otherField.addEventListener("change", () => {
+        sendDataToSheet(p.name, "איכות אחרת (טקסט חופשי)", otherField.value);
+      });
+    }
+
+    // תיבת סימון
+    popup.querySelectorAll("input[type='checkbox']").forEach(chk => {
+      chk.addEventListener("change", () => {
+        const checkedCount = popup.querySelectorAll("input[type='checkbox']:checked").length > 0;
+        p.hasSelection = checkedCount;
+        marker.setIcon(createIcon(p.name, checkedCount));
+        sendDataToSheet(p.name, chk.value, chk.checked);
+
+        if (checkedCount) {
+          // מציג את הוי הירוק
+          checkIcon.classList.add("show");
+
+          // אחרי 2 שניות מסיר את הוי ומציג את השאלה
+          setTimeout(() => {
+            checkIcon.classList.remove("show");
+            questionBox.style.display = "block";
+            questionBox.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 2000);
+        }
+      });
+    });
+
+    // כפתורי כן/לא
+    const yesBtn = questionBox.querySelector(".yes-btn");
+    const noBtn = questionBox.querySelector(".no-btn");
+
+    yesBtn.addEventListener("click", () => {
+      questionBox.style.display = "none";
+    });
+
+    noBtn.addEventListener("click", () => {
+      questionBox.style.display = "none";
+      setTimeout(() => map.closePopup(), 300);
+    });
+  });
+});
+</script>
+</body>
+</html>
